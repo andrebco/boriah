@@ -5,42 +5,83 @@ from math import log
 
 import arff
 
-class Boriah(object):
-    '''Classe que calcula os índices de similaridade entre dois objetos'''
+class NumeralAttribute(object):
+    '''Class que implemente um atributo numeral'''
 
-    def __init__(self, fp):
-        self.arff = arff.load(open(fp))
+    def __init__(self, _type, _distribution, minimal, maximal, d):
+        self.data_type = _type
+        self.distribution = _distribution
+        self.minimal = minimal
+        self.maximal = maximal
+        self.d = d
 
-        self.attributes = [item[0] for item in self.arff['attributes']]
-        self.data = self.arff['data']
-        self.relation = self.arff['relation']
-        self.description = self.arff['description']
 
-        for attribute, info in self.arff['attributes']:
+class NominalAttribute(object):
+    '''Class que implemente um atributo nominal'''
+
+    def __init__(self, _type, _categories, _distribution, d, N):
+        self.data_type = _type
+        self.categories = _categories
+        self.distribution = _distribution
+        self._d = d
+        self._N = N
+
+    def values(self, categoryX, categoryY):
+        d = self._d
+        nk = len(self.categories)
+        fkXk = self.distribution[categoryX]
+        fkYk = self.distribution[categoryY]
+        N = self._N
+        pkXk = 1.0 * fkXk / N
+        pkYk = 1.0 * fkYk / N
+
+        return d, nk, fkXk, fkYk, N, pkXk, pkYk
+
+class Attributes(object):
+    '''Classe que gera metodos para cada atributo'''
+
+    def __init__(self, arff_attributes, data):
+        self._arff_attributes = arff_attributes
+        self._data = data
+
+        self._d = len(arff_attributes)
+        self._N = len(data)
+
+        for attribute, info in arff_attributes:
             _dic = {}
             if type(info) == list:
-                _dic['type'] = 'NOMINAL'
-                _dic['categories'] = info
-                _dic['distribution'] = self.__distribution(attribute)
+                data_type = 'NOMINAL'
+                categories = info
+                distr = self.__distribution(attribute)
+                attr = NominalAttribute(data_type, categories,
+                                        distr, self._d, self._N)
+                _dic = attr
             else:
-                _dic['type'] = info
+                data_type = info
                 _dist = self.__distribution(attribute)
                 _dist = sorted(_dist.iteritems(), key=lambda x: x[0])
-                _dic['distribution'] = OrderedDict(_dist)
-                _dic['min'] = _dic['distribution'].keys()[0]
-                _dic['max'] = _dic['distribution'].keys()[-1]
-            setattr(self.__class__, 'attribute_' + attribute, _dic)
+                distribution = OrderedDict(_dist)
+                minimal = distribution.keys()[0]
+                maximal = distribution.keys()[-1]
+                attr = NumeralAttribute(data_type, distr,
+                                        minimal, maximal, self._d)
+                _dic = attr
 
+            if attribute == 'class':
+                setattr(self.__class__, attribute + '_', _dic)
+            else:
+                setattr(self.__class__, attribute, _dic)
 
     def __distribution(self, attribute):
-        attr_index = self.attributes.index(attribute)
+        attributes = [item[0] for item in self._arff_attributes]
+        attr_index = attributes.index(attribute)
         _dic = OrderedDict()
 
-        if type(self.arff['attributes'][attr_index][1]) == list:
-            for item in self.arff['attributes'][attr_index][1]:
+        if type(self._arff_attributes[attr_index][1]) == list:
+            for item in self._arff_attributes[attr_index][1]:
                 _dic[item] = 0
 
-        for line in self.data:
+        for line in self._data:
             value = line[attr_index]
             if value in _dic:
                 _dic[value] += 1
@@ -48,45 +89,72 @@ class Boriah(object):
                 _dic[value] = 1
         return _dic
 
-    def compare(self, item_0, item_1, method_name):
+
+class Boriah(object):
+    '''Classe que calcula os índices de similaridade entre dois objetos'''
+
+    def __init__(self, fp):
+        self.arff = arff.load(open(fp))
+
+        self.attributes = [item[0] if item[0] != 'class' else 'class_'
+                           for item in self.arff['attributes']]
+        self.data = self.arff['data']
+        self.relation = self.arff['relation']
+        self.description = self.arff['description']
+        self.attribute = Attributes(self.arff['attributes'], self.data)
+
+    def values(self, attribute, categoryX, categoryY):
+        method = getattr(self.attribute, attribute)
+        return method.values(categoryX, categoryY)
+
+    def compare(self, itemX, itemY, method_name):
 
         comparison_list = []
-        for index, values in enumerate(zip(item_0, item_1)):
-            v0, v1 = values[0], values[1]
-            field = self.attributes[index]
+        for index, values in enumerate(zip(itemX, itemY)):
+            valueX, valueY = values[0], values[1]
+            attribute = self.attributes[index]
 
-            method = getattr(self, 'attribute_' + field)
+            method = getattr(self.attribute, attribute)
+
             result = 0
-            if method['type'] == 'NOMINAL':
+            if method.data_type == 'NOMINAL':
+
                 method = getattr(self, '_Boriah__comp_' + method_name)
-                result = method(field, v1, v0)
+                result = method(attribute, valueX, valueY)
             else:
                 method = getattr(self, '_Boriah__comp_numbers')
-                result = method(field, v1, v0)
+                result = method(attribute, valueX, valueY)
 
             comparison_list.append(result)
-        return comparison_list
+        return comparison_list, sum(comparison_list)
 
-    def __comp_numbers(self, field, v0, v1):
-        method = getattr(self, 'attribute_' + field)
-        _max = 1.0 * max(v0, v1)
-        _min = 1.0 * min(v0, v1)
-        total = method['max'] - method['min']
-        return 1 - ((_max - _min) / total)
 
-    def __comp_overlap(self, field, v0, v1):
-        method = getattr(self, 'attribute_' + field)
-
-        d = len(self.attributes)
+    def __comp_numbers(self, attribute, valueX, valueY):
+        method = getattr(self.attribute, attribute)
+        _max = 1.0 * max(valueX, valueY)
+        _min = 1.0 * min(valueX, valueY)
+        total = method.maximal - method.minimal
+        result = 1 - ((_max - _min) / total)
+        d = method.d
         wk = 1.0 / d
-
-        result = 0
-        if v0 == v1:
-            result = 1.0
-        else:
-            result = 0
         return wk * result
 
+
+    def __comp_overlap(self, attr, categoryX, categoryY):
+
+        #Get values relatedo to categories and attribute
+        d, nk, fkXk, fkYk, N, pkXk, pkYk = self.values(attr, categoryX, categoryY)
+
+        #Define weight
+        wk = 1.0 / d
+
+        #Define rule of thumb
+        result = 1.0 if categoryX == categoryY else 0
+
+        #Return value by weight
+        return wk * result
+
+    #TODO: Refactor all methods od comparison and generate more methods.
     def __comp_eskin(self, field, v0, v1):
         method = getattr(self, 'attribute_' + field)
 
@@ -119,6 +187,8 @@ class Boriah(object):
             result = 1 / ( 1 + log(fkXk) * log(fkYk))
         return wk * result
 
+    #{'comp_of': (lambda x: 1, lambda x: , ...),
+
     def __comp_of(self, field, v0, v1):
         method = getattr(self, 'attribute_' + field)
 
@@ -135,4 +205,27 @@ class Boriah(object):
             result = 1.0
         else:
             result = 1 / ( 1 + log(N / fkXk) * log(N / fkYk))
+        return wk * result
+
+    def __comp_lin(self, field, v0, v1):
+        method = getattr(self, 'attribute_' + field)
+
+        d = len(self.attributes)
+
+        nk = len(method['categories'])
+        fkXk = method['distribution'][v0]
+        fkYk = method['distribution'][v1]
+        N = len(self.data)
+        #TODO: Float on fkXk e fkYk
+        pkXk = fkXk / N
+        pkYk = fkYk / N
+
+
+        wk = 1.0 / d
+
+        result = 0
+        if v0 == v1:
+            result = 2.0 * log(pkXk)
+        else:
+            result = 2.0 * log(pkXk + pkYk)
         return wk * result
