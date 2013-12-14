@@ -211,3 +211,7 @@ class Boriah(object):
 
         #Return value by weight
         return wk * result
+
+
+    #TODO: Refactor all methods od comparison and generate more methods.
+    #{'comp_of': (lambda x: 1, lambda x: , ...),
