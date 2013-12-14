@@ -197,25 +197,17 @@ class Boriah(object):
         #Return value by weight
         return wk * result
 
-    def __comp_lin(self, field, v0, v1):
-        method = getattr(self, 'attribute_' + field)
+    def __comp_lin(self, attr, categoryX, categoryY):
 
-        d = len(self.attributes)
+        #Get values relatedo to categories and attribute
+        print self.values(attr, categoryX, categoryY)
+        d, nk, fkXk, fkYk, N, pkXk, pkYk = self.values(attr, categoryX, categoryY)
 
-        nk = len(method['categories'])
-        fkXk = method['distribution'][v0]
-        fkYk = method['distribution'][v1]
-        N = len(self.data)
-        #TODO: Float on fkXk e fkYk
-        pkXk = fkXk / N
-        pkYk = fkYk / N
-
-
+        #Define weight
         wk = 1.0 / d
 
-        result = 0
-        if v0 == v1:
-            result = 2.0 * log(pkXk)
-        else:
-            result = 2.0 * log(pkXk + pkYk)
+        #Define rule of thumb
+        result = 2.0 * log(pkXk) if categoryX == categoryY else 2.0 * log(pkXk + pkYk)
+
+        #Return value by weight
         return wk * result
