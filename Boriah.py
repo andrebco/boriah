@@ -125,8 +125,9 @@ class Boriah(object):
                 method = getattr(self, '_Boriah__comp_numbers')
                 result = method(attribute, valueX, valueY)
 
+            #print valueX, valueY, result
             comparison_list.append(result)
-        return comparison_list, sum(comparison_list)
+        return sum(comparison_list)#, comparison_list
 
 
     def __comp_numbers(self, attribute, valueX, valueY):
