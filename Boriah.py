@@ -155,20 +155,18 @@ class Boriah(object):
         #Return value by weight
         return wk * result
 
-    #TODO: Refactor all methods od comparison and generate more methods.
-    def __comp_eskin(self, field, v0, v1):
-        method = getattr(self, 'attribute_' + field)
+    def __comp_eskin(self, attr, categoryX, categoryY):
 
-        d = len(self.attributes)
+        #Get values relatedo to categories and attribute
+        d, nk, fkXk, fkYk, N, pkXk, pkYk = self.values(attr, categoryX, categoryY)
+
+        #Define weight
         wk = 1.0 / d
 
-        nk = len(method['categories'])
+        #Define rule of thumb
+        result = 1.0 if categoryX == categoryY else (nk**2) / (nk**2 + 2)
 
-        result = 0
-        if v0 == v1:
-            result = 1.0
-        else:
-            result = (nk**2) / (nk**2 + 2)
+        #Return value by weight
         return wk * result
 
     def __comp_iof(self, field, v0, v1):
