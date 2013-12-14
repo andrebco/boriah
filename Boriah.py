@@ -183,24 +183,18 @@ class Boriah(object):
         #Return value by weight
         return wk * result
 
-    #{'comp_of': (lambda x: 1, lambda x: , ...),
+    def __comp_of(self, attr, categoryX, categoryY):
 
-    def __comp_of(self, field, v0, v1):
-        method = getattr(self, 'attribute_' + field)
+        #Get values relatedo to categories and attribute
+        d, nk, fkXk, fkYk, N, pkXk, pkYk = self.values(attr, categoryX, categoryY)
 
-        d = len(self.attributes)
+        #Define weight
         wk = 1.0 / d
 
-        nk = len(method['categories'])
-        fkXk = method['distribution'][v0]
-        fkYk = method['distribution'][v1]
-        N = len(self.data)
+        #Define rule of thumb
+        result = 1.0 if categoryX == categoryY else 1.0 / ( 1 + log(N / fkXk) * log(N / fkYk))
 
-        result = 0
-        if v0 == v1:
-            result = 1.0
-        else:
-            result = 1 / ( 1 + log(N / fkXk) * log(N / fkYk))
+        #Return value by weight
         return wk * result
 
     def __comp_lin(self, field, v0, v1):
